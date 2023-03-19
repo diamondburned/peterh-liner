@@ -1,5 +1,5 @@
-//go:build linux || darwin || openbsd || freebsd || netbsd || solaris
-// +build linux darwin openbsd freebsd netbsd solaris
+//go:build linux || darwin || openbsd || freebsd || netbsd || solaris || js
+// +build linux darwin openbsd freebsd netbsd solaris js
 
 package liner
 
@@ -9,8 +9,6 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
-	"strings"
-	"syscall"
 	"time"
 )
 
@@ -37,36 +35,7 @@ func NewLiner() *State {
 	s.r = bufio.NewReader(os.Stdin)
 
 	s.terminalSupported = TerminalSupported()
-	if m, err := TerminalMode(); err == nil {
-		s.origMode = *m.(*termios)
-	} else {
-		s.inputRedirected = true
-	}
-	if _, err := getMode(syscall.Stdout); err != nil {
-		s.outputRedirected = true
-	}
-	if s.inputRedirected && s.outputRedirected {
-		s.terminalSupported = false
-	}
-	if s.terminalSupported && !s.inputRedirected && !s.outputRedirected {
-		mode := s.origMode
-		mode.Iflag &^= icrnl | inpck | istrip | ixon
-		mode.Cflag |= cs8
-		mode.Lflag &^= syscall.ECHO | icanon | iexten
-		mode.Cc[syscall.VMIN] = 1
-		mode.Cc[syscall.VTIME] = 0
-		mode.ApplyMode()
-
-		winch := make(chan os.Signal, 1)
-		signal.Notify(winch, syscall.SIGWINCH)
-		s.winch = winch
-
-		s.checkOutput()
-	}
-
-	if !s.outputRedirected {
-		s.outputRedirected = !s.getColumns()
-	}
+	initLinerTerminal(&s)
 
 	return &s
 }
@@ -74,14 +43,7 @@ func NewLiner() *State {
 var errTimedOut = errors.New("timeout")
 
 func (s *State) startPrompt() {
-	if s.terminalSupported {
-		if m, err := TerminalMode(); err == nil {
-			s.defaultMode = *m.(*termios)
-			mode := s.defaultMode
-			mode.Lflag &^= isig
-			mode.ApplyMode()
-		}
-	}
+	s.supportedStartPrompt()
 	s.restartPrompt()
 }
 
@@ -107,9 +69,7 @@ func (s *State) restartPrompt() {
 }
 
 func (s *State) stopPrompt() {
-	if s.terminalSupported {
-		s.defaultMode.ApplyMode()
-	}
+	s.supportedStopPrompt()
 }
 
 func (s *State) nextPending(timeout <-chan time.Time) (rune, error) {
@@ -356,18 +316,6 @@ func (s *State) readNext() (interface{}, error) {
 // Close returns the terminal to its previous mode
 func (s *State) Close() error {
 	signal.Stop(s.winch)
-	if !s.inputRedirected {
-		s.origMode.ApplyMode()
-	}
+	s.close()
 	return nil
-}
-
-// TerminalSupported returns true if the current terminal supports
-// line editing features, and false if liner will use the 'dumb'
-// fallback for input.
-// Note that TerminalSupported does not check all factors that may
-// cause liner to not fully support the terminal (such as stdin redirection)
-func TerminalSupported() bool {
-	bad := map[string]bool{"": true, "dumb": true, "cons25": true}
-	return !bad[strings.ToLower(os.Getenv("TERM"))]
 }

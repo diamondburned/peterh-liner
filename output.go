@@ -1,5 +1,5 @@
-//go:build linux || darwin || openbsd || freebsd || netbsd || solaris
-// +build linux darwin openbsd freebsd netbsd solaris
+//go:build linux || darwin || openbsd || freebsd || netbsd || solaris || js
+// +build linux darwin openbsd freebsd netbsd solaris js
 
 package liner
 

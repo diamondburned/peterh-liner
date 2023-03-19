@@ -1,5 +1,5 @@
-//go:build !windows && !linux && !darwin && !openbsd && !freebsd && !netbsd && !solaris
-// +build !windows,!linux,!darwin,!openbsd,!freebsd,!netbsd,!solaris
+//go:build !windows && !linux && !darwin && !openbsd && !freebsd && !netbsd && !solaris && !js
+// +build !windows,!linux,!darwin,!openbsd,!freebsd,!netbsd,!solaris,!js
 
 package liner
 

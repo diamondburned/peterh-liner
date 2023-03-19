@@ -1,6 +1,3 @@
-//go:build windows || linux || darwin || openbsd || freebsd || netbsd || solaris
-// +build windows linux darwin openbsd freebsd netbsd solaris
-
 package liner
 
 import (
